@@ -17,13 +17,9 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
     address: '',
     bio: '',
     agreeTerms: false,
-    otp: '',
   })
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showOtpInput, setShowOtpInput] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [emailVerified, setEmailVerified] = useState(false)
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -50,93 +46,18 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
     if (!formData.agreeTerms)
       newErrors.agreeTerms = 'You must agree to the Terms and Conditions'
 
-    // Validate OTP length if required
-    if (showOtpInput && !formData.otp.trim()) {
-      newErrors.otp = 'OTP is required'
-    }
-
     return newErrors
-  }
-
-  const sendOtp = async () => {
-    if (!formData.email.trim()) {
-      setErrors({ ...errors, email: 'Email is required' })
-      return
-    }
-
-    // Check email validity using regex before proceeding
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setErrors({ ...errors, email: 'Email is invalid' })
-      return
-    }
-
-    setLoading(true)
-    try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/sendOTP`,
-        { email: formData.email }
-      )
-      toast.success(response.data.message)
-      setShowOtpInput(true)
-      // Clear any previous OTP errors
-      setErrors((prev) => ({ ...prev, otp: '' }))
-    } catch (error) {
-      setErrors({
-        ...errors,
-        email: error.response?.data?.error || 'Failed to send OTP',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const verifyOtp = async () => {
-    try {
-      setLoading(true)
-      const verifyResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/verifyOTP`,
-        { email: formData.email, otp: formData.otp }
-      )
-      if (verifyResponse.data.verified) {
-        setEmailVerified(true) // Mark email as verified
-        toast.success('OTP verified successfully')
-      } else {
-        setErrors((prev) => ({
-          ...prev,
-          otp: verifyResponse.data.error || 'OTP verification failed',
-        }))
-      }
-    } catch (error) {
-      setErrors((prev) => ({
-        ...prev,
-        otp: error.response?.data?.error || 'OTP verification failed',
-      }))
-    } finally {
-      setLoading(false)
-    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     const newErrors = validate()
 
-    // Ensure OTP is provided if it's required
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
 
-    // Enforce that OTP verification has occurred
-    if (!emailVerified) {
-      toast.error('Please verify your email with the OTP')
-      setErrors((prev) => ({
-        ...prev,
-        otp: 'Please verify your email with the OTP',
-      }))
-      return
-    }
-
-    // Proceed with signup after OTP verification succeeds
     setIsSubmitting(true)
     try {
       const formDataWithPhoto = new FormData()
@@ -173,51 +94,8 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
       })
     } finally {
       setIsSubmitting(false)
-      setLoading(false)
     }
   }
-
-  //   // Proceed with signup after OTP verification succeeds
-  //   setIsSubmitting(true)
-  //   try {
-  //     const formDataWithPhoto = new FormData()
-  //     Object.keys(formData).forEach((key) => {
-  //       formDataWithPhoto.append(key, formData[key])
-  //     })
-
-  //     if (profilePhoto) {
-  //       formDataWithPhoto.append('profilePhoto', profilePhoto)
-  //     }
-
-  //     // Log each field for debugging purposes
-  //     for (let pair of formDataWithPhoto.entries()) {
-  //       console.log(pair[0], pair[1])
-  //     }
-
-  //     const response = await axios.post(
-  //       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/signup`,
-  //       formDataWithPhoto,
-  //       {
-  //         headers: {
-  //           'Content-Type': 'multipart/form-data',
-  //         },
-  //       }
-  //     )
-
-  //     toast.success('Registration successful! Redirecting to login...')
-  //     setIsLogin(true)
-  //   } catch (error) {
-  //     console.error('Registration error:', error)
-  //     setErrors({
-  //       submit:
-  //         error.response?.data?.message ||
-  //         'Failed to register. Please try again.',
-  //     })
-  //   } finally {
-  //     setIsSubmitting(false)
-  //     setLoading(false)
-  //   }
-  // }
 
   return (
     <div className='w-full p-3 sm:p-6 rounded-lg shadow-md text-gray-800 dark:text-gray-200'>
@@ -249,7 +127,7 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
             )}
           </div>
 
-          {/* Email Field with OTP Button - Fixed Layout */}
+          {/* Email Field */}
           <div className='col-span-2 md:col-span-1'>
             <label
               className='block text-gray-700 dark:text-gray-300 mb-1 text-sm'
@@ -272,50 +150,9 @@ const SignupPage = ({ setIsLogin, profilePhoto }) => {
                   } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   placeholder='your.email@example.com'
                 />
-                <button
-                  type='button'
-                  onClick={sendOtp}
-                  className='ml-2 px-3 py-2 h-full whitespace-nowrap bg-blue-600 text-sm text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0'
-                  disabled={loading}
-                >
-                  {loading ? 'Sending...' : 'Send OTP'}
-                </button>
               </div>
               {errors.email && (
                 <p className='text-red-500 text-xs mt-1'>{errors.email}</p>
-              )}
-
-              {/* Conditionally render OTP input and verification */}
-              {showOtpInput && !emailVerified && (
-                <div className='w-full'>
-                  <input
-                    type='text'
-                    id='otp'
-                    name='otp'
-                    value={formData.otp}
-                    onChange={handleChange}
-                    className='w-full px-3 py-2 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500'
-                    placeholder='Enter OTP'
-                  />
-                  {errors.otp && (
-                    <p className='text-red-500 text-xs mt-1'>{errors.otp}</p>
-                  )}
-                  <button
-                    type='button'
-                    onClick={verifyOtp}
-                    className='mt-2 px-3 py-2 bg-green-600 text-sm text-white rounded-lg hover:bg-green-700 transition-colors'
-                    disabled={loading}
-                  >
-                    {loading ? 'Verifying...' : 'Verify OTP'}
-                  </button>
-                </div>
-              )}
-
-              {/* Show confirmation if email is verified */}
-              {emailVerified && (
-                <div className='w-full'>
-                  <p className='text-green-600 text-sm mt-1'>Email Verified!</p>
-                </div>
               )}
             </div>
           </div>

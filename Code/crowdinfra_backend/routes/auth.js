@@ -8,13 +8,7 @@ const {
 } = require('../middlewares/validation')
 
 // const authMiddleware = require('../middlewares/authMiddleware')
-const {
-  signupUser,
-  loginUser,
-  sendOtp,
-  logoutUser,
-  verifyOtp,
-} = require('../controllers/authController')
+const { signupUser, loginUser, logoutUser } = require('../controllers/authController')
 const { log } = require('console')
 
 const router = express.Router()
@@ -72,11 +66,5 @@ router.get('/verify', (req, res) => {
 
 // Logout route
 router.post('/logout', logoutUser)
-
-// Verify OTP route
-router.post('/verifyOTP', verifyOtp)
-
-// Send OTP
-router.post('/sendOTP', sendOtp);
 
 module.exports = router
