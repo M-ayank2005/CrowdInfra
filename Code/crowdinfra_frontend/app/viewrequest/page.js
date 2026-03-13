@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import axios from 'axios'
 import Navbar from '../components/navbar'
 import Footer from '../components/footer'
@@ -14,12 +13,13 @@ import {
 } from '../lib/google-maps-config'
 
 export default function ViewRequest() {
-  const searchParams = useSearchParams()
   const [request, setRequest] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [businessAnalysis, setBusinessAnalysis] = useState(null)
   const [businessLoading, setBusinessLoading] = useState(false)
+  const [requestId, setRequestId] = useState('')
+  const [isRequestIdReady, setIsRequestIdReady] = useState(false)
   const mapRef = useRef(null)
   const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY?.trim() || ''
   const GEMINI_TEXT_MODELS = [
@@ -54,10 +54,26 @@ export default function ViewRequest() {
     }
   }
 
-  const requestId = searchParams.get('id')?.trim() || ''
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const id = new URLSearchParams(window.location.search).get('id')?.trim() || ''
+    setRequestId(id)
+    setIsRequestIdReady(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isRequestIdReady) {
+      return
+    }
+
     if (!requestId) {
+      setLoading(false)
+      setError('Request ID not found in URL')
       return
     }
 
@@ -109,7 +125,7 @@ export default function ViewRequest() {
     return () => {
       active = false
     }
-  }, [requestId])
+  }, [requestId, isRequestIdReady])
 
   useEffect(() => {
     if (request && mapRef.current) {
@@ -940,7 +956,7 @@ Task requirements:
                 <div className='py-2'>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(window.location.href)
+                      navigator.clipboard.writeText(currentUrl)
                       alert('Link copied to clipboard!')
                       document
                         .getElementById('share-dropdown')
@@ -967,7 +983,7 @@ Task requirements:
                   <a
                     href={`https://twitter.com/intent/tweet?text=Check out this demand: ${
                       request.title
-                    }&url=${encodeURIComponent(window.location.href)}`}
+                    }&url=${encodeURIComponent(currentUrl)}`}
                     target='_blank'
                     rel='noopener noreferrer'
                     className='flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 w-full text-left transition-colors'
@@ -988,7 +1004,7 @@ Task requirements:
                   </a>
                   <a
                     href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(
-                      window.location.href
+                      currentUrl
                     )}&title=${encodeURIComponent(request.title)}`}
                     target='_blank'
                     rel='noopener noreferrer'
@@ -1011,7 +1027,7 @@ Task requirements:
                   <a
                     href={`https://wa.me/?text=${encodeURIComponent(
                       request.title
-                    )}%0A%0A${encodeURIComponent(window.location.href)}`}
+                    )}%0A%0A${encodeURIComponent(currentUrl)}`}
                     target='_blank'
                     rel='noopener noreferrer'
                     className='flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 w-full text-left transition-colors'
@@ -1034,7 +1050,7 @@ Task requirements:
                     href={`mailto:?subject=${encodeURIComponent(
                       `Check out this demand: ${request.title}`
                     )}&body=${encodeURIComponent(
-                      `I found this interesting demand on CrowdInfra:\n\n${request.title}\n${window.location.href}`
+                      `I found this interesting demand on CrowdInfra:\n\n${request.title}\n${currentUrl}`
                     )}`}
                     className='flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 w-full text-left transition-colors'
                     onClick={() =>
