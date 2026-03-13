@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api'
+import { useRouter } from 'next/navigation'
 import Navbar from '../components/navbar'
 import { useUserContext } from '../components/user_context'
 import PlaceAutocomplete from '../components/autocomplete'
@@ -26,6 +27,7 @@ const center = {
 }
 
 const SearchDemandsPage = () => {
+  const router = useRouter()
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [demands, setDemands] = useState([])
   const [filteredDemands, setFilteredDemands] = useState([])
@@ -33,6 +35,7 @@ const SearchDemandsPage = () => {
   const [newComment, setNewComment] = useState('')
   const [businessCategory, setBusinessCategory] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [isOpeningDetails, setIsOpeningDetails] = useState(false)
   const [error, setError] = useState(null)
   const [visibleDemands, setVisibleDemands] = useState(3) // Show 6 initially
   const mapRef = useRef(null)
@@ -180,6 +183,11 @@ const SearchDemandsPage = () => {
     }
   }
 
+  const handleViewDetails = (demandId) => {
+    setIsOpeningDetails(true)
+    router.push(`/viewrequest/?id=${demandId}`)
+  }
+
   if (loading)
     return (
       <>
@@ -267,6 +275,17 @@ const SearchDemandsPage = () => {
 
   return (
     <>
+      {isOpeningDetails && (
+        <div className='fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm'>
+          <Loading
+            fullScreen
+            size='md'
+            text='Opening demand details...'
+            className='rounded-none bg-transparent'
+          />
+        </div>
+      )}
+
       <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 py-10 text-gray-100'>
         <Navbar />
 
@@ -307,7 +326,7 @@ const SearchDemandsPage = () => {
 
             <div
               className='bg-gray-800/30 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-gray-700/50 h-[70vh] overflow-y-auto 
-            transition-all duration-300 hover:shadow-2xl'
+            [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-all duration-300 hover:shadow-2xl'
             >
               <h2 className='text-2xl font-bold mb-4 text-blue-400 transition-all duration-300 hover:text-blue-300'>
                 {selectedDemand ? selectedDemand.title : 'Demand Details'}
@@ -361,7 +380,7 @@ const SearchDemandsPage = () => {
                       Comments
                     </h3>
 
-                    <div className='space-y-3 mb-4 max-h-60 overflow-y-auto'>
+                    <div className='space-y-3 mb-4 max-h-60 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'>
                       {(selectedDemand.comments || []).map((comment, index) => (
                         <div
                           key={index}
@@ -403,8 +422,9 @@ const SearchDemandsPage = () => {
                       </button>
                     </div>
                     <div className='flex justify-center mt-10'>
-                      <a
-                        href={`/viewrequest/?id=${selectedDemand._id}`}
+                      <button
+                        type='button'
+                        onClick={() => handleViewDetails(selectedDemand._id)}
                         className='px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 
                         transition-colors duration-300 flex items-center space-x-2 
                         transform hover:scale-105'
@@ -424,7 +444,7 @@ const SearchDemandsPage = () => {
                             d='M14 5l7 7m0 0l-7 7m7-7H3'
                           />
                         </svg>
-                      </a>
+                      </button>
                     </div>
                   </div>
                 </div>
