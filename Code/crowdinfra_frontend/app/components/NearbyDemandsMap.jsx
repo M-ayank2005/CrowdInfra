@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import dynamic from 'next/dynamic'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import {
   GoogleMap,
@@ -10,7 +8,11 @@ import {
   InfoWindow,
   useLoadScript,
 } from '@react-google-maps/api'
-import Loading from './loading'
+import MapPlaceholder from './map-placeholder'
+import {
+  googleMapsScriptOptions,
+  hasGoogleMapsApiKey,
+} from '../lib/google-maps-config'
 
 const containerStyle = {
   width: '100%',
@@ -27,17 +29,8 @@ export default function NearbyDemandsMap({ onDemandSelect }) {
   const [hoveringInfoWindow, setHoveringInfoWindow] = useState(false)
   const [hoveringUserLocation, setHoveringUserLocation] = useState(false)
 
-  // Memoized API key and libraries
-  const scriptOptions = useMemo(
-    () => ({
-      googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-      libraries: ['places'],
-    }),
-    []
-  )
-
   // Load Google Maps script
-  const { isLoaded, loadError } = useLoadScript(scriptOptions)
+  const { isLoaded, loadError } = useLoadScript(googleMapsScriptOptions)
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -79,19 +72,39 @@ export default function NearbyDemandsMap({ onDemandSelect }) {
     onDemandSelect && onDemandSelect(demand)
   }
 
-  if (loadError)
-    return <p className='text-red-500'>Failed to load Google Maps.</p>
-  if (!isLoaded) return <Loading text='Loading map...' />
-  if (error) return <p className='text-red-500'>{error}</p>
+  if (!hasGoogleMapsApiKey || loadError) {
+    return (
+      <MapPlaceholder
+        title='Map unavailable'
+        message='Nearby demands can still be browsed elsewhere, but Google Maps could not be initialized here.'
+        loading={false}
+        minHeightClass='min-h-[450px]'
+      />
+    )
+  }
+
+  if (!isLoaded) {
+    return (
+      <MapPlaceholder
+        title='Loading map'
+        message='Nearby demands will appear as soon as Google Maps is ready.'
+        minHeightClass='min-h-[450px]'
+      />
+    )
+  }
 
   return (
     <div className='relative'>
+      {error && (
+        <div className='mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100'>
+          {error}
+        </div>
+      )}
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={location || defaultCenter}
         zoom={location ? 14 : 5}
       >
-        {console.log('Google Map Loaded')}
         {location && (
           <>
             {/* "You Are Here" Card - Shown on Hover */}
@@ -150,7 +163,7 @@ export default function NearbyDemandsMap({ onDemandSelect }) {
             {/* Green Marker for Current Location */}
             <Marker
               position={location}
-              icon={'http://maps.google.com/mapfiles/ms/icons/green-dot.png'}
+              icon={'https://maps.google.com/mapfiles/ms/icons/green-dot.png'}
               onMouseOver={() => setHoveringUserLocation(true)}
               onMouseOut={() => setHoveringUserLocation(false)}
             />
@@ -171,7 +184,7 @@ export default function NearbyDemandsMap({ onDemandSelect }) {
                 handleDemandSelect(null)
               }
             }}
-            icon={'http://maps.google.com/mapfiles/ms/icons/red-dot.png'}
+            icon={'https://maps.google.com/mapfiles/ms/icons/red-dot.png'}
           />
         ))}
 

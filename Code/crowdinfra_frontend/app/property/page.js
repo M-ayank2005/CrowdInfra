@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 import {
   useLoadScript,
@@ -18,8 +18,12 @@ import PlaceAutocomplete from '../components/autocomplete'
 import { X, MapPin } from 'lucide-react'
 
 import Footer from '../components/footer'
-
-import Loading from '../components/loading'
+import MapPlaceholder from '../components/map-placeholder'
+import {
+  googleMapsScriptOptions,
+  hasGoogleMapsApiKey,
+} from '../lib/google-maps-config'
+import { focusMapOnSelectedPlace } from '../lib/focus-map-on-place'
 
 const containerStyle = {
   width: '100%',
@@ -65,24 +69,22 @@ const PropertyPage = () => {
   const [activeProperty, setActiveProperty] = useState(null)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const mapRef = useRef(null)
 
   const { selectedPlace } = useUserContext() || {}
 
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-
-    libraries: ['places'],
-
-    id: 'google-maps-script',
-  })
+  const { isLoaded, loadError } = useLoadScript(googleMapsScriptOptions)
 
   useEffect(() => {
     if (selectedPlace && selectedPlace.lat && selectedPlace.lng) {
-      setSelectedLocation({
+      const nextLocation = {
         lat: selectedPlace.lat,
 
         lng: selectedPlace.lng,
-      })
+      }
+
+      setSelectedLocation(nextLocation)
+      focusMapOnSelectedPlace(mapRef.current, selectedPlace)
     }
   }, [selectedPlace])
 
@@ -198,12 +200,149 @@ const PropertyPage = () => {
     }
   }
 
-  if (!isLoaded)
-    return (
-      <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center'>
-        <Loading text='Loading Map ...' />
-      </div>
-    )
+  const mapContent = !hasGoogleMapsApiKey || loadError ? (
+    <MapPlaceholder
+      title='Map unavailable'
+      message='The property form is still available, but Google Maps could not be initialized.'
+      loading={false}
+      minHeightClass='min-h-[70vh]'
+    />
+  ) : !isLoaded ? (
+    <MapPlaceholder
+      title='Loading map'
+      message='The property form stays available while the map loads.'
+      minHeightClass='min-h-[70vh]'
+    />
+  ) : (
+    <GoogleMap
+      onLoad={(map) => {
+        mapRef.current = map
+        focusMapOnSelectedPlace(map, selectedPlace)
+      }}
+      mapContainerStyle={containerStyle}
+      center={selectedLocation || center}
+      zoom={selectedLocation ? 15 : 5}
+      onClick={handleMapClick}
+      options={{
+        mapTypeControl: true,
+
+        mapTypeId: 'terrain',
+
+        fullscreenControl: true,
+
+        streetViewControl: true,
+
+        zoomControl: true,
+      }}
+    >
+      {selectedLocation && showLocationPopup && (
+        <InfoWindow
+          position={selectedLocation}
+          onCloseClick={handleCloseLocationPopup}
+        >
+          <div className='p-4 bg-white rounded-lg shadow-xl'>
+            <div className='flex justify-between items-center mb-4'>
+              <h3 className='text-xl font-bold text-gray-800'>
+                Raise a Property
+              </h3>
+
+              {/* <button
+                onClick={handleCloseLocationPopup}
+                className='text-gray-500 hover:text-gray-700'
+              >
+                <X size={24} />
+              </button> */}
+            </div>
+
+            <button
+              onClick={() => {
+                setShowForm(true)
+
+                setShowLocationPopup(false)
+              }}
+              className='w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center'
+            >
+              <MapPin className='mr-2' /> Raise Property Here
+            </button>
+          </div>
+        </InfoWindow>
+      )}
+
+      {selectedLocation && !showForm && (
+        <Marker
+          position={selectedLocation}
+          draggable={true}
+          onDragEnd={(e) => {
+            if (e && e.latLng) {
+              try {
+                const lat = e.latLng.lat()
+
+                const lng = e.latLng.lng()
+
+                if (
+                  typeof lat === 'number' &&
+                  typeof lng === 'number'
+                ) {
+                  setSelectedLocation({ lat, lng })
+
+                  setShowLocationPopup(true)
+                }
+              } catch (error) {
+                console.error('Error in marker drag:', error)
+              }
+            }
+          }}
+        />
+      )}
+
+      {submittedProperties.map((property) => (
+        <Marker
+          key={property.id}
+          position={{
+            lat: property.coordinates[1],
+
+            lng: property.coordinates[0],
+          }}
+          onClick={() =>
+            setActiveProperty(
+              activeProperty === property.id ? null : property.id
+            )
+          }
+        >
+          {activeProperty === property.id && (
+            <InfoWindow
+              position={{
+                lat: property.coordinates[1],
+
+                lng: property.coordinates[0],
+              }}
+              onCloseClick={() => {
+                setActiveProperty(null)
+              }}
+            >
+              <div className='p-4 max-w-xs'>
+                <h3 className='text-xl font-bold text-blue-600 mb-2'>
+                  {property.title}
+                </h3>
+
+                <p className='text-gray-700 mb-2'>{property.description}</p>
+
+                <div className='flex justify-between'>
+                  <span className='bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm'>
+                    {property.category}
+                  </span>
+
+                  <span className='text-green-600 font-semibold'>
+                    ₹{property.price}
+                  </span>
+                </div>
+              </div>
+            </InfoWindow>
+          )}
+        </Marker>
+      ))}
+    </GoogleMap>
+  )
 
   return (
     <>
@@ -216,7 +355,7 @@ const PropertyPage = () => {
           </h1>
 
           <div className='mb-6 flex items-center justify-center'>
-            <div className='w-1/2'>
+            <div className='w-full md:w-2/3 lg:w-1/2'>
               <PlaceAutocomplete />
             </div>
           </div>
@@ -300,134 +439,7 @@ const PropertyPage = () => {
             {/* Map Section - Right Columns */}
 
             <div className='md:col-span-2 rounded-xl overflow-hidden shadow-2xl relative'>
-              <GoogleMap
-                mapContainerStyle={containerStyle}
-                center={selectedLocation || center}
-                zoom={selectedLocation ? 15 : 5}
-                onClick={handleMapClick}
-                options={{
-                  mapTypeControl: true,
-
-                  mapTypeId: 'terrain',
-
-                  fullscreenControl: true,
-
-                  streetViewControl: true,
-
-                  zoomControl: true,
-                }}
-              >
-                {selectedLocation && showLocationPopup && (
-                  <InfoWindow
-                    position={selectedLocation}
-                    onCloseClick={handleCloseLocationPopup}
-                  >
-                    <div className='p-4 bg-white rounded-lg shadow-xl'>
-                      <div className='flex justify-between items-center mb-4'>
-                        <h3 className='text-xl font-bold text-gray-800'>
-                          Raise a Property
-                        </h3>
-
-                        {/* <button
-                          onClick={handleCloseLocationPopup}
-                          className='text-gray-500 hover:text-gray-700'
-                        >
-                          <X size={24} />
-                        </button> */}
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setShowForm(true)
-
-                          setShowLocationPopup(false)
-                        }}
-                        className='w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center'
-                      >
-                        <MapPin className='mr-2' /> Raise Property Here
-                      </button>
-                    </div>
-                  </InfoWindow>
-                )}
-
-                {selectedLocation && !showForm && (
-                  <Marker
-                    position={selectedLocation}
-                    draggable={true}
-                    onDragEnd={(e) => {
-                      if (e && e.latLng) {
-                        try {
-                          const lat = e.latLng.lat()
-
-                          const lng = e.latLng.lng()
-
-                          if (
-                            typeof lat === 'number' &&
-                            typeof lng === 'number'
-                          ) {
-                            setSelectedLocation({ lat, lng })
-
-                            setShowLocationPopup(true)
-                          }
-                        } catch (error) {
-                          console.error('Error in marker drag:', error)
-                        }
-                      }
-                    }}
-                  />
-                )}
-
-                {/* Submitted Properties Markers */}
-
-                {submittedProperties.map((property) => (
-                  <Marker
-                    key={property.id}
-                    position={{
-                      lat: property.coordinates[1],
-
-                      lng: property.coordinates[0],
-                    }}
-                    onClick={() =>
-                      setActiveProperty(
-                        activeProperty === property.id ? null : property.id
-                      )
-                    }
-                  >
-                    {activeProperty === property.id && (
-                      <InfoWindow
-                        position={{
-                          lat: property.coordinates[1],
-
-                          lng: property.coordinates[0],
-                        }}
-                        onCloseClick={() => {
-                          setActiveProperty(null)
-                        }}
-                      >
-                        <div className='p-4 max-w-xs'>
-                          <h3 className='text-xl font-bold text-blue-600 mb-2'>
-                            {property.title}
-                          </h3>
-
-                          <p className='text-gray-700 mb-2'>
-                            {property.description}
-                          </p>
-
-                          <div className='flex justify-between'>
-                            <span className='bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm'>
-                              {property.category}
-                            </span>
-
-                            <span className='text-green-600 font-semibold'>
-                              ₹{property.price}
-                            </span>
-                          </div>
-                        </div>
-                      </InfoWindow>
-                    )}
-                  </Marker>
-                ))}
-              </GoogleMap>
+              {mapContent}
             </div>
           </div>
 

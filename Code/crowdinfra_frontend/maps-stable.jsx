@@ -8,9 +8,9 @@ import {
   AdvancedMarker,
   Map,
   useMap,
-  useMapsLibrary,
   useAdvancedMarkerRef,
 } from "@vis.gl/react-google-maps";
+import PlaceAutocomplete from "./app/components/autocomplete";
 
 const MapHandler = ({ place, marker }) => {
   const map = useMap();
@@ -60,40 +60,6 @@ const LogScaleValue = () => {
   return null;
 };
 
-const PlaceAutocomplete = ({ onPlaceSelect }) => {
-  const [placeAutocomplete, setPlaceAutocomplete] = useState(null);
-  const inputRef = useRef(null);
-  const places = useMapsLibrary("places");
-
-  useEffect(() => {
-    if (!places || !inputRef.current) return;
-
-    const options = {
-      fields: ["geometry", "name", "formatted_address"],
-    };
-
-    setPlaceAutocomplete(new places.Autocomplete(inputRef.current, options));
-  }, [places]);
-
-  useEffect(() => {
-    if (!placeAutocomplete) return;
-
-    placeAutocomplete.addListener("place_changed", () => {
-      onPlaceSelect(placeAutocomplete.getPlace());
-    });
-  }, [onPlaceSelect, placeAutocomplete]);
-
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-4 m-4 w-96">
-      <input
-        ref={inputRef}
-        className="w-full px-4 py-2 text-gray-700 border rounded-lg focus:outline-none focus:border-blue-500"
-        placeholder="Search for a place..."
-      />
-    </div>
-  );
-};
-
 const ClickLogger = () => {
   const map = useMap();
 
@@ -141,7 +107,9 @@ export default function Gmaps() {
           <ClickLogger /> 
           <AdvancedMarker ref={markerRef} position={null} />
           <MapControl position={ControlPosition.TOP}>
-            <PlaceAutocomplete onPlaceSelect={setSelectedPlace} />
+            <div className="m-4 w-96 max-w-[calc(100vw-2rem)]">
+              <PlaceAutocomplete onPlaceSelect={setSelectedPlace} />
+            </div>
           </MapControl>
           <MapHandler place={selectedPlace} marker={marker} />
         </Map>

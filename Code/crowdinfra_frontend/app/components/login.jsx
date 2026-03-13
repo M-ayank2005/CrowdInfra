@@ -73,10 +73,9 @@ const LoginPage = ({ setIsLogin }) => {
   }
 
   return (
-    <div className='min-h-screen w-full bg-transparent py-5 text-white'>
-      <div className='container mx-auto px-4 py-8'>
-        <div className='max-w-full mx-auto'>
-          <div className='bg-transparent backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden p-8 border-none'>
+    <div className='w-full text-white'>
+      <div className='mx-auto w-full'>
+        <div className='rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl sm:p-8'>
             <div className='text-center mb-8'>
               <h1 className='text-4xl font-bold text-white mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500'>
                 Login
@@ -205,7 +204,6 @@ const LoginPage = ({ setIsLogin }) => {
                 )}
               </button>
             </form>
-          </div>
         </div>
       </div>
     </div>

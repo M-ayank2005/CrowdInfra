@@ -9,6 +9,11 @@ import { Edit, Phone, MapPin, Calendar, Mail, User, Clock } from 'lucide-react'
 import Image from 'next/image'
 import { LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import MapPlaceholder from '../components/map-placeholder'
+import {
+  googleMapsScriptOptions,
+  hasGoogleMapsApiKey,
+} from '../lib/google-maps-config'
 
 const containerStyle = {
   width: '100%',
@@ -23,11 +28,7 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('info')
   const router = useRouter()
 
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    libraries: ['places'],
-    id: 'google-maps-script',
-  })
+  const { isLoaded, loadError } = useLoadScript(googleMapsScriptOptions)
 
   const handleLogout = async () => {
     try {
@@ -305,7 +306,14 @@ const ProfilePage = () => {
                       </div>
 
                       <div className='rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-blue-500/50 transition-colors duration-300'>
-                        {isLoaded && mapCenter ? (
+                        {!hasGoogleMapsApiKey || loadError ? (
+                          <MapPlaceholder
+                            title='Map unavailable'
+                            message='Your profile data is loaded, but the location preview could not be initialized.'
+                            loading={false}
+                            minHeightClass='min-h-[250px]'
+                          />
+                        ) : isLoaded && mapCenter ? (
                           <GoogleMap
                             mapContainerStyle={containerStyle}
                             center={mapCenter} // Use mapCenter state
@@ -327,12 +335,11 @@ const ProfilePage = () => {
                             <Marker position={mapCenter} />
                           </GoogleMap>
                         ) : (
-                          <div className='h-64 w-full flex items-center justify-center bg-gray-800'>
-                            <div className='animate-pulse flex flex-col items-center'>
-                              <div className='rounded-full bg-gray-700 h-10 w-10 mb-2'></div>
-                              <div className='h-2 bg-gray-700 rounded w-24'></div>
-                            </div>
-                          </div>
+                          <MapPlaceholder
+                            title='Loading map'
+                            message='Your profile details are ready while the location preview loads.'
+                            minHeightClass='min-h-[250px]'
+                          />
                         )}
                       </div>
                     </div>

@@ -2,11 +2,30 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
-const RotatingEarth = () => {
+const RotatingEarth = ({ onReady, onError }) => {
   const containerRef = useRef(null)
   
   useEffect(() => {
     if (!containerRef.current) return
+
+    let animationFrameId = 0
+    let isDisposed = false
+    let earthTexture = null
+    let readyNotified = false
+
+    const notifyReady = () => {
+      if (!readyNotified) {
+        readyNotified = true
+        onReady?.()
+      }
+    }
+
+    const notifyError = (error) => {
+      if (!readyNotified) {
+        readyNotified = true
+      }
+      onError?.(error)
+    }
     
     // Set up scene
     const scene = new THREE.Scene()
@@ -36,7 +55,12 @@ const RotatingEarth = () => {
     
     // Load Earth texture
     const textureLoader = new THREE.TextureLoader()
-    const earthTexture = textureLoader.load('/earth.webp')
+    earthTexture = textureLoader.load(
+      '/earth.webp',
+      () => notifyReady(),
+      undefined,
+      (error) => notifyError(error)
+    )
     
     // Create atmosphere glow
     const atmosphereGeometry = new THREE.SphereGeometry(1.02, 128, 128)
@@ -115,6 +139,8 @@ const RotatingEarth = () => {
     const rotationSpeed = 0.05 // Degrees per second
     
     const animate = (time) => {
+      if (isDisposed) return
+
       const delta = (time - lastTime) / 1000
       lastTime = time
       
@@ -126,7 +152,7 @@ const RotatingEarth = () => {
       stars.rotation.y += 0.0005
       
       renderer.render(scene, camera)
-      requestAnimationFrame(animate)
+      animationFrameId = requestAnimationFrame(animate)
     }
     
     // Responsive window resizing
@@ -145,22 +171,28 @@ const RotatingEarth = () => {
     window.addEventListener('resize', handleResize)
     
     // Start animation
-    requestAnimationFrame(animate)
+    animationFrameId = requestAnimationFrame(animate)
     
     // Cleanup
     return () => {
+      isDisposed = true
       window.removeEventListener('resize', handleResize)
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
       if (containerRef.current && containerRef.current.contains(renderer.domElement)) {
         containerRef.current.removeChild(renderer.domElement)
       }
       geometry.dispose()
       material.dispose()
+      earthTexture?.dispose()
       atmosphereGeometry.dispose()
       atmosphereMaterial.dispose()
       starsGeometry.dispose()
       starsMaterial.dispose()
+      renderer.dispose()
     }
-  }, [])
+  }, [onError, onReady])
   
   return <div ref={containerRef} className="w-full h-full" />
 }

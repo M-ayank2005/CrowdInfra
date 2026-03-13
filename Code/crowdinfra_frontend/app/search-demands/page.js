@@ -1,12 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api'
 import Navbar from '../components/navbar'
 import { useUserContext } from '../components/user_context'
 import PlaceAutocomplete from '../components/autocomplete'
 import Footer from '../components/footer'
+import Loading from '../components/loading'
 import axios from 'axios'
+import MapPlaceholder from '../components/map-placeholder'
+import {
+  googleMapsScriptOptions,
+  hasGoogleMapsApiKey,
+} from '../lib/google-maps-config'
+import { focusMapOnSelectedPlace } from '../lib/focus-map-on-place'
 
 const containerStyle = {
   width: '100%',
@@ -28,6 +35,7 @@ const SearchDemandsPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [visibleDemands, setVisibleDemands] = useState(3) // Show 6 initially
+  const mapRef = useRef(null)
 
   const handleLoadMore = () => {
     setVisibleDemands((prev) => prev + 3) // Load 6 more each time
@@ -39,11 +47,7 @@ const SearchDemandsPage = () => {
 
   const { selectedPlace } = useUserContext() || {}
 
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    libraries: ['places'],
-    id: 'google-maps-script',
-  })
+  const { isLoaded, loadError } = useLoadScript(googleMapsScriptOptions)
 
   // Fetch demands from backend
   useEffect(() => {
@@ -75,10 +79,13 @@ const SearchDemandsPage = () => {
   // Update selected location when place changes
   useEffect(() => {
     if (selectedPlace && selectedPlace.lat && selectedPlace.lng) {
-      setSelectedLocation({
+      const nextLocation = {
         lat: selectedPlace.lat,
         lng: selectedPlace.lng,
-      })
+      }
+
+      setSelectedLocation(nextLocation)
+      focusMapOnSelectedPlace(mapRef.current, selectedPlace)
     }
   }, [selectedPlace])
 
@@ -173,20 +180,28 @@ const SearchDemandsPage = () => {
     }
   }
 
-  if (!isLoaded)
-    return (
-      <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center'>
-        <div className='animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500'></div>
-        <span className='ml-4 text-xl text-gray-200'>Loading...</span>
-      </div>
-    )
-
   if (loading)
     return (
-      <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center'>
-        <div className='animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500'></div>
-        <span className='ml-4 text-xl text-gray-200'>Loading Demands...</span>
-      </div>
+      <>
+        <div className='min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 py-10 text-gray-100'>
+          <Navbar />
+
+          <div className='container mx-auto px-4 py-8 mt-8'>
+            <h1 className='text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gray-200'>
+              Search Demands
+            </h1>
+
+            <div className='rounded-2xl border border-gray-700/60 bg-gray-800/40 p-5 sm:p-6'>
+              <Loading
+                text='Loading latest community demands...'
+                size='md'
+                className='min-h-[260px] bg-transparent'
+              />
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </>
     )
 
   if (error)
@@ -195,6 +210,60 @@ const SearchDemandsPage = () => {
         <p className='text-red-500 text-xl'>{error}</p>
       </div>
     )
+
+  const mapContent = !hasGoogleMapsApiKey || loadError ? (
+    <MapPlaceholder
+      title='Map unavailable'
+      message='Demand results are still available, but Google Maps could not be initialized.'
+      loading={false}
+      minHeightClass='min-h-[70vh]'
+    />
+  ) : !isLoaded ? (
+    <MapPlaceholder
+      title='Loading map'
+      message='Demand results stay available while Google Maps finishes loading.'
+      minHeightClass='min-h-[70vh]'
+    />
+  ) : (
+    <GoogleMap
+      onLoad={(map) => {
+        mapRef.current = map
+        focusMapOnSelectedPlace(map, selectedPlace)
+      }}
+      mapContainerStyle={containerStyle}
+      center={selectedLocation || center}
+      zoom={selectedLocation ? 15 : 5}
+      options={{
+        mapTypeControl: true,
+        mapTypeId: 'roadmap',
+        fullscreenControl: true,
+        streetViewControl: true,
+        zoomControl: true,
+      }}
+    >
+      {filteredDemands.map((demand) => (
+        <Marker
+          key={demand._id}
+          position={{
+            lat: demand.location.coordinates[1],
+            lng: demand.location.coordinates[0],
+          }}
+          onClick={() => handleMarkerClick(demand)}
+          icon={{
+            path: 'M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z',
+            fillColor:
+              selectedDemand && selectedDemand._id === demand._id
+                ? '#FF4500'
+                : '#2196F3',
+            fillOpacity: 1,
+            strokeWeight: 1,
+            strokeColor: '#ffffff',
+            scale: 2,
+          }}
+        />
+      ))}
+    </GoogleMap>
+  )
 
   return (
     <>
@@ -232,40 +301,7 @@ const SearchDemandsPage = () => {
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
             <div className='lg:col-span-2'>
               <div className='rounded-xl overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl'>
-                <GoogleMap
-                  mapContainerStyle={containerStyle}
-                  center={selectedLocation || center}
-                  zoom={selectedLocation ? 15 : 5}
-                  options={{
-                    mapTypeControl: true,
-                    mapTypeId: 'roadmap',
-                    fullscreenControl: true,
-                    streetViewControl: true,
-                    zoomControl: true,
-                  }}
-                >
-                  {filteredDemands.map((demand) => (
-                    <Marker
-                      key={demand._id}
-                      position={{
-                        lat: demand.location.coordinates[1],
-                        lng: demand.location.coordinates[0],
-                      }}
-                      onClick={() => handleMarkerClick(demand)}
-                      icon={{
-                        path: 'M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z',
-                        fillColor:
-                          selectedDemand && selectedDemand._id === demand._id
-                            ? '#FF4500'
-                            : '#2196F3',
-                        fillOpacity: 1,
-                        strokeWeight: 1,
-                        strokeColor: '#ffffff',
-                        scale: 2,
-                      }}
-                    />
-                  ))}
-                </GoogleMap>
+                {mapContent}
               </div>
             </div>
 

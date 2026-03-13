@@ -1,71 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Script from 'next/script'
-import * as THREE from 'three'
 import Navbar from './components/navbar'
-import { useUserContext } from './components/user_context'
 import Link from 'next/link'
 import Footer from './components/footer'
 import NearbyDemandsMap from './components/NearbyDemandsMap'
-import Loading from './components/loading'
 import axios from 'axios'
 import { toast } from 'react-toastify'
-import DecryptedText from './ui_comp/de_para'
 import GradientText from './components/ui/gradientText'
 import Rating from './components/ratings'
-import Cursor from './components/ui/cursor'
+import HomeGlobe from './components/home-globe'
 
 export default function GlobePage() {
-  const globeRef = useRef()
-  const [isMapExpanded, setIsMapExpanded] = useState(false)
-  const [showMap, setShowMap] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
-  // State to track whether to show cursor based on performance
-  const [showCursor, setShowCursor] = useState(true)
-
-  // Effect to monitor performance and disable cursor if needed
-  useEffect(() => {
-    let lastTime = performance.now()
-    let frameCount = 0
-    let lowPerformanceCount = 0
-
-    const checkPerformance = () => {
-      const now = performance.now()
-      const elapsed = now - lastTime
-      frameCount++
-
-      // Check every second
-      if (elapsed >= 1000) {
-        const fps = frameCount / (elapsed / 1000)
-
-        // If FPS is below threshold, increment counter
-        if (fps < 30) {
-          lowPerformanceCount++
-          if (lowPerformanceCount >= 3 && showCursor) {
-            setShowCursor(false)
-          }
-        } else {
-          // Reset counter if performance improves
-          lowPerformanceCount = 0
-          if (!showCursor) {
-            setShowCursor(true)
-          }
-        }
-
-        frameCount = 0
-        lastTime = now
-      }
-
-      requestAnimationFrame(checkPerformance)
-    }
-
-    requestAnimationFrame(checkPerformance)
-
-    return () => cancelAnimationFrame(checkPerformance)
-  }, [showCursor])
 
   // Variable to track if the user is authenticated
   useEffect(() => {
@@ -82,7 +30,6 @@ export default function GlobePage() {
 
         if (response.data.valid) {
           console.log('User is authenticated:', response.data.user)
-          setIsAuthenticated(true)
         } else {
           console.log('Invalid token. Redirecting...')
           toast.error('Please login to continue')
@@ -96,134 +43,21 @@ export default function GlobePage() {
     }
 
     verifyUser()
-  }, [])
-
-  // Prevent rendering until authentication check is complete
-  if (isAuthenticated === null) {
-    return <Loading text='Verifying user...' />
-  }
-
-  const initGlobe = () => {
-    const world = (globeRef.current.__world = new Globe(globeRef.current, {
-      animateIn: false,
-    })
-      .globeImageUrl(
-        '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
-      )
-      .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png'))
-
-    // Auto-rotate
-    world.controls().autoRotate = true
-    world.controls().autoRotateSpeed = 0.35
-
-    // Add clouds sphere
-    const CLOUDS_IMG_URL = './clouds.png'
-    const CLOUDS_ALT = 0.004
-    const CLOUDS_ROTATION_SPEED = -0.006 // deg/frame
-
-    new THREE.TextureLoader().load(CLOUDS_IMG_URL, (cloudsTexture) => {
-      const clouds = new THREE.Mesh(
-        new THREE.SphereGeometry(
-          world.getGlobeRadius() * (1 + CLOUDS_ALT),
-          75,
-          75
-        ),
-        new THREE.MeshPhongMaterial({ map: cloudsTexture, transparent: true })
-      )
-      world.scene().add(clouds)
-      ;(function rotateClouds() {
-        clouds.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180
-        requestAnimationFrame(rotateClouds)
-      })()
-    })
-
-    // Add double-click event listener to toggle map expansion
-    globeRef.current.addEventListener('dblclick', handleMapToggle)
-
-    // Make globe responsive
-    const handleResize = () => {
-      if (world) {
-        world.width(window.innerWidth)
-        world.height(window.innerHeight * 0.8)
-      }
-    }
-
-    window.addEventListener('resize', handleResize)
-    handleResize() // Initial sizing
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      globeRef.current?.removeEventListener('dblclick', handleMapToggle)
-    }
-  }
-
-  const handleMapToggle = () => {
-    if (!showMap) return // Don't toggle if map shouldn't be shown
-
-    setIsMapExpanded(!isMapExpanded)
-
-    if (!isMapExpanded) {
-      // Expand map
-      const mapElement = document.getElementById('map')
-      if (mapElement) {
-        mapElement.scrollIntoView({ behavior: 'smooth' })
-
-        // Show map with transition
-        mapElement.style.transition = 'opacity 1000ms'
-        mapElement.style.opacity = '1'
-      } else {
-        // If map element doesn't exist yet, scroll to bottom
-        window.scrollTo({
-          top: document.body.scrollHeight,
-          behavior: 'smooth',
-        })
-      }
-
-      // Change navbar background
-      const navC = document.getElementById('navC')
-      if (navC) {
-        navC.style.background = 'transparent'
-      }
-    } else {
-      // Collapse map - scroll to top
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      })
-
-      // Hide map
-      const bottomElement = document.getElementById('map')
-      if (bottomElement) {
-        bottomElement.style.opacity = '0'
-      }
-
-      // Reset navbar
-      const navC = document.getElementById('navC')
-      if (navC) {
-        navC.style.background = 'black'
-      }
-    }
-  }
+  }, [router])
 
   return (
     <>
-      {/* {showCursor && <Cursor/>} */}
       <div
         id='navC'
         className='bg-black pt-4 md:pt-8 pb-2 md:pb-4 sticky top-0 z-[999]'
       >
         <Navbar />
-        <Script src='//unpkg.com/globe.gl' onLoad={initGlobe} />
       </div>
       <div
         style={{ marginTop: '0px', padding: '0px' }}
         className='z-10 h-[50vh] md:h-[70vh] lg:h-[80vh]'
       >
-        <div
-          ref={globeRef}
-          id='globeViz'
-          className='z-1000 cursor-pointer w-full h-full'
-        />
+        <HomeGlobe />
       </div>
 
       <div
@@ -528,32 +362,22 @@ export default function GlobePage() {
             <Rating />
             <Link
               href='/rating'
-              className='group flex items-center justify-center space-x-2 text-white rounded-full px-6 py-3 shadow-lg transition-all duration-300 z-50 relative overflow-hidden'
+              className='group relative z-50 mx-auto flex w-full max-w-xs items-center justify-center overflow-hidden rounded-full px-6 py-3 text-center text-white shadow-lg transition-all duration-300 sm:max-w-sm'
               style={{
                 background: 'linear-gradient(45deg, #40ffaa, #4079ff)',
                 marginTop: '3rem',
                 marginBottom: '2rem',
-                display: 'inline-block',
-                marginLeft: '44%',
-                // transform: 'translateX(-50%)',
+                display: 'flex',
               }}
             >
-              <Link
-                href='/rating'
-                style={{
-                  background: 'linear-gradient(45deg, #40ffaa, #4079ff)',
-                  // transform: 'translateX(-50%)',
-                }}
-              >
-                <div className='relative overflow-hidden w-full text-center' >
-                  <span className='block transition-all duration-300 transform group-hover:translate-y-[-100%] group-hover:opacity-0'>
-                    Give us a Thumbs Up
-                  </span>
-                  <span className='absolute left-0 right-0 top-full opacity-0 transition-all duration-300 transform group-hover:translate-y-[-100%] group-hover:opacity-100 text-white'>
-                    We Appreciate You!
-                  </span>
-                </div>
-              </Link>
+              <div className='relative w-full overflow-hidden text-center'>
+                <span className='block transform transition-all duration-300 group-hover:translate-y-[-100%] group-hover:opacity-0'>
+                  Give us a Thumbs Up
+                </span>
+                <span className='absolute left-0 right-0 top-full transform opacity-0 transition-all duration-300 group-hover:translate-y-[-100%] group-hover:opacity-100 text-white'>
+                  We Appreciate You!
+                </span>
+              </div>
 
               <div className='absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300'></div>
             </Link>

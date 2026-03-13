@@ -1,10 +1,57 @@
 'use client'
-import React, { createContext, useState, useContext, useEffect } from 'react'
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react'
 import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 
 const UserContext = createContext()
+
+const normalizeSelectedPlace = (place) => {
+  if (!place) {
+    return null
+  }
+
+  if (typeof place.lat === 'number' && typeof place.lng === 'number') {
+    return {
+      lat: place.lat,
+      lng: place.lng,
+      name: place.name || place.formattedAddress || place.formatted_address || '',
+      placeId: place.placeId || place.place_id || null,
+      bounds: place.bounds || null,
+      zoom: place.zoom || 15,
+    }
+  }
+
+  const location = place.geometry?.location
+  if (!location) {
+    return null
+  }
+
+  const viewport = place.geometry?.viewport
+
+  return {
+    lat: location.lat(),
+    lng: location.lng(),
+    name: place.formatted_address || place.name || '',
+    placeId: place.place_id || null,
+    bounds: viewport
+      ? {
+          north: viewport.getNorthEast().lat(),
+          east: viewport.getNorthEast().lng(),
+          south: viewport.getSouthWest().lat(),
+          west: viewport.getSouthWest().lng(),
+        }
+      : null,
+    zoom: 15,
+  }
+}
 
 export const UserProvider = ({ children }) => {
   const [selectedPlace, setSelectedPlace] = useState(null)
@@ -54,70 +101,93 @@ export const UserProvider = ({ children }) => {
     // router.push('/landing') // Redirect to login page
   }
 
+  const handlePlaceSelect = useCallback((place) => {
+    const normalizedPlace = normalizeSelectedPlace(place)
+
+    if (normalizedPlace) {
+      setSelectedPlace(normalizedPlace)
+      setActiveDemand(null)
+    }
+  }, [])
+
+  const handleMapClick = useCallback((event) => {
+    if (event?.latLng) {
+      setSelectedPlace({
+        lat: event.latLng.lat(),
+        lng: event.latLng.lng(),
+        name: 'Pinned Location',
+        placeId: null,
+        bounds: null,
+        zoom: 15,
+      })
+      setActiveDemand(null)
+    }
+  }, [])
+
+  const highlightDemand = useCallback(
+    (demandId) => {
+      const demand = demandLocations.find((d) => d.id === demandId)
+      if (demand) {
+        setActiveDemand(demand)
+        setSelectedPlace(null)
+      }
+    },
+    [demandLocations]
+  )
+
+  const value = useMemo(
+    () => ({
+      user,
+      logout,
+      selectedPlace,
+      setSelectedPlace,
+      demandLocations,
+      setDemandLocations,
+      overlayOn,
+      setOverlayOn,
+      imageBlob,
+      setImageBlob,
+      scaleVal,
+      setScaleVal,
+      searchResults,
+      activeDemand,
+      handlePlaceSelect,
+      handleMapClick,
+      raiseDemand: (demandDetails) => {
+        if (selectedPlace) {
+          setDemandLocations((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              ...demandDetails,
+              location: selectedPlace,
+              status: 'active',
+            },
+          ])
+          setSelectedPlace(null)
+        }
+      },
+      loadDemandMarkers: setDemandLocations,
+      highlightDemand,
+    }),
+    [
+      user,
+      logout,
+      selectedPlace,
+      demandLocations,
+      overlayOn,
+      imageBlob,
+      scaleVal,
+      searchResults,
+      activeDemand,
+      handlePlaceSelect,
+      handleMapClick,
+      highlightDemand,
+    ]
+  )
+
   return (
-    <UserContext.Provider
-      value={{
-        user,
-        logout,
-        selectedPlace,
-        setSelectedPlace,
-        demandLocations,
-        setDemandLocations,
-        overlayOn,
-        setOverlayOn,
-        imageBlob,
-        setImageBlob,
-        scaleVal,
-        setScaleVal,
-        searchResults,
-        activeDemand,
-        handlePlaceSelect: (place) => {
-          if (place?.geometry?.location) {
-            setSelectedPlace({
-              lat: place.geometry.location.lat(),
-              lng: place.geometry.location.lng(),
-              name: place.formatted_address || '',
-              placeId: place.place_id,
-            })
-            setActiveDemand(null)
-          }
-        },
-        handleMapClick: (event) => {
-          if (event?.latLng) {
-            setSelectedPlace({
-              lat: event.latLng.lat(),
-              lng: event.latLng.lng(),
-              name: 'Pinned Location',
-            })
-            setActiveDemand(null)
-          }
-        },
-        raiseDemand: (demandDetails) => {
-          if (selectedPlace) {
-            setDemandLocations((prev) => [
-              ...prev,
-              {
-                id: Date.now(),
-                ...demandDetails,
-                location: selectedPlace,
-                status: 'active',
-              },
-            ])
-            setSelectedPlace(null)
-          }
-        },
-        loadDemandMarkers: setDemandLocations,
-        highlightDemand: (demandId) => {
-          const demand = demandLocations.find((d) => d.id === demandId)
-          if (demand) {
-            setActiveDemand(demand)
-            setSelectedPlace(null)
-          }
-        },
-      }}
-    >
-      {children}
-    </UserContext.Provider>
+    <UserContext.Provider value={value}>{children}</UserContext.Provider>
   )
 }
 

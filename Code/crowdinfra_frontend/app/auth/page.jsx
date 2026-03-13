@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import Login from '../components/login'
 import SignupPage from '../components/signup'
 import RotatingEarth from '../components/RotatingEarth'
@@ -8,15 +8,10 @@ import { Camera, Upload } from 'lucide-react'
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [isSceneReady, setIsSceneReady] = useState(false)
   const fileInputRef = useRef(null)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null)
   const [profilePhoto, setProfilePhoto] = useState(null)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800)
-    return () => clearTimeout(timer)
-  }, [])
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0]
@@ -31,21 +26,19 @@ export default function Auth() {
   }
 
   const triggerFileInput = () => {
-    fileInputRef.current.click()
+    fileInputRef.current?.click()
   }
 
   return (
-    <div className='flex min-h-screen bg-gradient-to-b from-black via-blue-950 to-black w-full items-center justify-center overflow-hidden px-4 py-8 sm:px-6 md:px-8'>
-      <div className='relative flex flex-col md:flex-row w-full max-w-6xl h-auto md:h-[85vh] shadow-2xl rounded-3xl overflow-hidden backdrop-blur-sm'>
+    <div className='flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-gradient-to-b from-black via-blue-950 to-black px-0 sm:px-4 lg:px-6'>
+      <div className='relative flex h-full w-full max-w-6xl flex-col overflow-hidden border border-white/10 bg-black/30 shadow-2xl backdrop-blur-sm sm:max-h-[calc(100dvh-2rem)] sm:rounded-[2rem] lg:flex-row'>
         {/* Earth Animation Section */}
         <div
-          className={`flex-1 flex items-center justify-center transition-all duration-700 ease-in-out ${
-            isLogin ? 'md:order-last' : ''
-          } relative overflow-hidden rounded-t-3xl md:rounded-t-none ${
-            isLogin ? 'md:rounded-r-3xl' : 'md:rounded-l-3xl'
-          } min-h-[30vh] md:min-h-full`}
+          className={`relative flex min-h-[240px] flex-[0_0_auto] items-center justify-center overflow-hidden px-4 py-6 transition-all duration-700 ease-in-out sm:min-h-[280px] sm:px-8 lg:min-h-0 lg:flex-1 lg:px-10 ${
+            isLogin ? 'lg:order-last' : ''
+          }`}
         >
-          {loading && (
+          {!isSceneReady && (
             <div className='absolute inset-0 z-20 flex items-center justify-center bg-black'>
               <div className='w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin'></div>
             </div>
@@ -53,14 +46,17 @@ export default function Auth() {
 
           <div
             className={`absolute inset-0 transition-opacity duration-1000 ${
-              loading ? 'opacity-0' : 'opacity-100'
+              isSceneReady ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <RotatingEarth />
+            <RotatingEarth
+              onReady={() => setIsSceneReady(true)}
+              onError={() => setIsSceneReady(true)}
+            />
           </div>
 
-          <div className='relative z-10 text-center px-4 sm:px-8 max-w-md'>
-            <p className='text-xl sm:text-2xl text-gray-200 drop-shadow-md'>
+          <div className='relative z-10 max-w-md px-4 text-center sm:px-8'>
+            <div className='text-xl text-gray-200 drop-shadow-md sm:text-2xl'>
               {isLogin ? (
                 'Your journey continues here'
               ) : (
@@ -99,15 +95,15 @@ export default function Auth() {
                   </p>
                 </div>
               )}
-            </p>
+            </div>
           </div>
 
           <div className='absolute inset-0 bg-gradient-to-r from-blue-900/40 to-black/70 z-0'></div>
         </div>
 
         {/* Form Section */}
-        <div className='flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-grey dark:bg-gray-900 rounded-b-3xl md:rounded-b-none ${isLogin ? "md:rounded-l-3xl" : "md:rounded-r-3xl"} '>
-          <div className='w-full max-w-md'>
+        <div className='scrollbar-hide flex flex-1 flex-col justify-center overflow-y-auto bg-gray-950/80 p-5 sm:p-6 md:p-8 lg:p-10'>
+          <div className='mx-auto w-full max-w-xl'>
             <div className='mb-6 md:mb-8'>
               <h2 className='text-2xl md:text-3xl font-bold text-center text-white dark:text-white'>
                 {isLogin ? 'Log In' : 'Create Account'}
