@@ -1,6 +1,5 @@
 export const GOOGLE_MAPS_API_KEY =
-  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  'AIzaSyCBUWqISO_DOQUKhwb7q09wQteK87WOEec'
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() || ''
 
 export const GOOGLE_MAPS_LIBRARIES = ['places']
 

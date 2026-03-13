@@ -11,6 +11,7 @@ import {
   useAdvancedMarkerRef,
 } from "@vis.gl/react-google-maps";
 import PlaceAutocomplete from "./app/components/autocomplete";
+import { GOOGLE_MAPS_API_KEY } from "./app/lib/google-maps-config";
 
 const MapHandler = ({ place, marker }) => {
   const map = useMap();
@@ -89,7 +90,7 @@ export default function Gmaps() {
   return (
     <div className="h-full w-full">
       <APIProvider
-        apiKey={"AIzaSyCBUWqISO_DOQUKhwb7q09wQteK87WOEec"}
+        apiKey={GOOGLE_MAPS_API_KEY}
         libraries={["places"]}
         solutionChannel="GMP_devsite_samples_v3_rgmautocomplete"
       >
